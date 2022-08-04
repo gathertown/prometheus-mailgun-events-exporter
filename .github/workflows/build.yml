@@ -1,0 +1,20 @@
+name: Build check
+
+on: [pull_request]
+
+jobs:
+  mailgun-exporter-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.17.8' ]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@v2
+        with:
+          go-version:  ${{ matrix.go }}
+      - name: Build check
+        run: |
+          make build
