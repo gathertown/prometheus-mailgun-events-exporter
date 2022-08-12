@@ -60,7 +60,7 @@ func RecordDeliverySpeed(accepted []*events.Accepted, delivered []*events.Delive
 		for _, d := range delivered {
 			if d.Message.Headers.MessageID == a.Message.Headers.MessageID {
 				logger.Debug("Delivery Succeeded", "MessageID", a.Message.Headers.MessageID, "Accepted at", a.GetTimestamp(), "Delivered at", d.GetTimestamp(), "Delivery time", d.Timestamp-a.Timestamp)
-				metrics.DeliveryTime.WithLabelValues(a.Message.Headers.MessageID).Set(float64(d.Timestamp - a.Timestamp))
+				metrics.DeliveryTime.WithLabelValues(config.FromEnv().Domain).Observe(float64(d.Timestamp - a.Timestamp))
 				break
 			}
 		}
