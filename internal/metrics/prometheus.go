@@ -14,10 +14,11 @@ var (
 	}, []string{"messageID", "reason", "errorMessage", "severity"},
 	)
 
-	DeliveryTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	DeliveryTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:      "delivery_time_seconds",
 		Namespace: namespace,
 		Help:      "The time took for an email to actually got delivered from the time that got accepted in mailgun",
-	}, []string{"message_id"},
+		Buckets:   []float64{0.5, 1, 2, 5, 10, 20, 40, 60},
+	}, []string{"domain"},
 	)
 )
