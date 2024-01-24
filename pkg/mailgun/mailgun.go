@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"mailgun_events_exporter/internal/config"
-	"mailgun_events_exporter/internal/metrics"
 	"mailgun_events_exporter/pkg/log"
 	"os"
 	"time"
@@ -16,16 +15,31 @@ import (
 var cfg = config.FromEnv()
 var logger = log.New(os.Stdout, cfg.LogLevel)
 
-func GetMailgunEventsPerType(domain, apiKey string) ([]*events.Accepted, []*events.Delivered, []*events.Failed, error) {
-	mg := mailgun.NewMailgun(domain, apiKey)
+type EventRetriever interface {
+	GetEvents() ([]*events.Accepted, []*events.Delivered, []*events.Failed, error)
+}
+
+type MailgunRetriever struct {
+	EventRetriever
+
+	mg *mailgun.MailgunImpl
+}
+
+func NewMailgunRetriever(domain, apiKey string) *MailgunRetriever {
+	return &MailgunRetriever{
+		mg: mailgun.NewMailgun(domain, apiKey),
+	}
+}
+
+func (r *MailgunRetriever) GetEvents() ([]*events.Accepted, []*events.Delivered, []*events.Failed, error) {
 	accepted := []*events.Accepted{}
 	delivered := []*events.Delivered{}
 	failed := []*events.Failed{}
 
-	it := mg.ListEvents(&mailgun.ListEventOptions{
+	it := r.mg.ListEvents(&mailgun.ListEventOptions{
 		Begin: time.Now().Add(-3 * time.Minute),
 		End:   time.Now().Add(-2 * time.Minute),
-		Limit: 100,
+		Limit: 300,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -53,23 +67,4 @@ func GetMailgunEventsPerType(domain, apiKey string) ([]*events.Accepted, []*even
 	}
 	logger.Debug("Total Events last minute", "Accepted", len(accepted), "Delivered", len(delivered), "Failed", len(failed))
 	return accepted, delivered, failed, nil
-}
-
-func RecordDeliverySpeed(accepted []*events.Accepted, delivered []*events.Delivered) {
-	for _, a := range accepted {
-		for _, d := range delivered {
-			if d.Message.Headers.MessageID == a.Message.Headers.MessageID {
-				logger.Debug("Delivery Succeeded", "MessageID", a.Message.Headers.MessageID, "Accepted at", a.GetTimestamp(), "Delivered at", d.GetTimestamp(), "Delivery time", d.Timestamp-a.Timestamp)
-				metrics.DeliveryTime.WithLabelValues(config.FromEnv().Domain).Observe(float64(d.Timestamp - a.Timestamp))
-				break
-			}
-		}
-	}
-}
-
-func RecordDeliveryErrorMessages(failed []*events.Failed) {
-	for _, f := range failed {
-		logger.Debug("Delivery Failed", "MessageID", f.Message.Headers.MessageID, "Failed at", f.GetTimestamp(), "Reason", f.Reason, "Error Message", f.DeliveryStatus.Message, "Failure Severity", f.Severity)
-		metrics.DeliveryError.WithLabelValues(f.Message.Headers.MessageID, f.Reason, f.DeliveryStatus.Message, f.Severity).Inc()
-	}
 }
