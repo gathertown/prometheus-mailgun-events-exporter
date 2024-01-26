@@ -18,7 +18,9 @@ To authenticate with Mailgun API, you need to set `MG_API_KEY`
 
 ```md
 # HELP mailgun_delivery_time_seconds The time took for an email to actually got delivered from the time that got accepted in mailgun
-# HELP maigun_delivery_error Email Delivery error messages
+# HELP mailgun_delivery_error Email Delivery errors
+# HELP mailgun_queued_accepted_events Number of accepted events waiting for matching delivered event
+# HELP mailgun_expired_accepted_events_count Number of accepted events that have expired
 ```
 
 ## Release
