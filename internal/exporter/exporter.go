@@ -49,7 +49,7 @@ func NewExporter(cfg *config.Config, opts ...ExporterOption) *Exporter {
 		started: false,
 		cfg:     cfg,
 		ticker:  time.NewTicker(time.Minute),
-		tm:      timedmap.New(10 * time.Minute),
+		tm:      timedmap.New(1 * time.Minute),
 		logger:  log.New(os.Stdout, cfg.LogLevel),
 		mg:      mailgun.NewMailgunRetriever(cfg.Domain, cfg.ApiKey),
 	}
@@ -78,13 +78,25 @@ func (e *Exporter) recordMetrics() {
 		e.recordAccepted(accepted)
 		e.recordDelivered(delivered)
 		e.recordFailed(failed)
+		e.updateTimedMapCount()
+	}
+}
+
+func (e *Exporter) updateTimedMapCount() {
+	metrics.QueuedAcceptedEvents.WithLabelValues(e.cfg.Domain).Set(float64(e.tm.Size()))
+}
+
+func (e *Exporter) keyExpiredCallback() func(value interface{}) {
+	return func(value interface{}) {
+		e.logger.Debug("Dropping accepted event with message ID", value)
+		metrics.ExpiredAcceptedEvents.WithLabelValues(e.cfg.Domain).Inc()
 	}
 }
 
 func (e *Exporter) recordAccepted(accepted []*events.Accepted) {
 	for _, a := range accepted {
 		key := messageKey(a.Message.Headers.MessageID, a.Recipient)
-		e.tm.Set(key, a.Timestamp, DEFAULT_RETENTION_DURATION)
+		e.tm.Set(key, a.Timestamp, DEFAULT_RETENTION_DURATION, e.keyExpiredCallback())
 	}
 }
 
