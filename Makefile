@@ -9,6 +9,12 @@ build: buildlinux darwinbuild
 build-image:
 	docker build -t gathertown/prometheus-mailgun-events-exporter:latest .
 
+# Build and push multi-arch image (linux/amd64, linux/arm64). Requires: docker login
+push-multi-arch:
+	docker buildx build --platform linux/amd64,linux/arm64 \
+		-t gathertown/prometheus-mailgun-events-exporter:latest \
+		--push .
+
 run: build
 	go run ./cmd/main.go
 
